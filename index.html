@@ -579,15 +579,163 @@
 
             console.log('Shared URL:', sharedUrl); // Debug
 
-            if (sharedUrl || sharedTitle) {
-                setTimeout(() => {
-                    openModal();
-                    if (sharedUrl) document.getElementById('urlInput').value = sharedUrl;
-                    if (sharedTitle) document.getElementById('titleInput').value = sharedTitle;
-                    autoDetectCategory(sharedUrl);
-                }, 300);
+            if (sharedUrl) {
+                // Auto-save immediately with smart title
+                autoSaveMemory(sharedUrl);
             }
         });
+
+        // Auto-save with smart title generation
+        async function autoSaveMemory(url) {
+            const category = detectCategory(url);
+            const smartTitle = generateSmartTitle(url);
+            const thumbnail = getThumbnail(url);
+
+            const memory = {
+                title: smartTitle,
+                url: url,
+                category: category,
+                thumbnail: thumbnail,
+                notes: null
+            };
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/memories`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(memory)
+                });
+
+                if (!response.ok) throw new Error('Failed to save');
+
+                const newMemory = await response.json();
+                memories.unshift(newMemory[0]);
+                renderMemories();
+
+                // Show success message
+                showToast('נשמר בהצלחה! ✓');
+
+                // Clear URL params
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+            } catch (error) {
+                console.error('Error auto-saving:', error);
+                showToast('שגיאה בשמירה');
+            }
+        }
+
+        // Detect category from URL
+        function detectCategory(url) {
+            const urlLower = url.toLowerCase();
+            const videoSites = ['youtube.com', 'youtu.be', 'vimeo.com', 'tiktok.com', 'instagram.com/reel', 'facebook.com/watch'];
+            const docExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+
+            if (videoSites.some(site => urlLower.includes(site))) return 'video';
+            if (docExtensions.some(ext => urlLower.endsWith(ext))) return 'document';
+            if (imageExtensions.some(ext => urlLower.endsWith(ext))) return 'image';
+            if (urlLower.includes('invoice') || urlLower.includes('receipt')) return 'invoice';
+            return 'website';
+        }
+
+        // Generate smart title from URL
+        function generateSmartTitle(url) {
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+                const pathname = urlObj.pathname;
+
+                // YouTube
+                if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+                    return 'סרטון YouTube';
+                }
+                // Instagram
+                if (hostname.includes('instagram.com')) {
+                    if (pathname.includes('/reel/')) return 'Reel מאינסטגרם';
+                    if (pathname.includes('/p/')) return 'פוסט מאינסטגרם';
+                    return 'תוכן מאינסטגרם';
+                }
+                // TikTok
+                if (hostname.includes('tiktok.com')) {
+                    return 'סרטון TikTok';
+                }
+                // Facebook
+                if (hostname.includes('facebook.com')) {
+                    return 'תוכן מפייסבוק';
+                }
+                // Twitter/X
+                if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+                    return 'ציוץ מ-X';
+                }
+                // LinkedIn
+                if (hostname.includes('linkedin.com')) {
+                    return 'פוסט מלינקדאין';
+                }
+                // General website
+                return `שמירה מ-${hostname}`;
+            } catch (e) {
+                return 'שמירה חדשה';
+            }
+        }
+
+        // Get thumbnail for any URL
+        function getThumbnail(url) {
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+
+                // YouTube - use native thumbnail
+                if (hostname.includes('youtube.com')) {
+                    const videoId = urlObj.searchParams.get('v');
+                    if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+                if (hostname.includes('youtu.be')) {
+                    const videoId = urlObj.pathname.slice(1);
+                    if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+
+                // Vimeo - use thum.io
+                if (hostname.includes('vimeo.com')) {
+                    return `https://image.thum.io/get/width/400/${url}`;
+                }
+
+                // For all other URLs - use thum.io screenshot service (free, unlimited)
+                return `https://image.thum.io/get/width/400/${url}`;
+
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Toast notification
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: white;
+                padding: 15px 30px;
+                border-radius: 25px;
+                font-size: 1rem;
+                z-index: 9999;
+                animation: fadeInUp 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
 
         // Auto-detect category based on URL
         function autoDetectCategory(url) {
@@ -756,7 +904,10 @@
                 return `
                     <div class="memory-card" onclick="openUrl('${memory.url || ''}', event)">
                         <div class="memory-thumbnail">
-                            ${cat.icon}
+                            ${memory.thumbnail
+                                ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${cat.icon}';">`
+                                : cat.icon
+                            }
                         </div>
                         <div class="memory-content">
                             <span class="memory-category">${cat.icon} ${cat.label}</span>
