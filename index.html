@@ -562,14 +562,30 @@
 
             // Check for shared content (from URL params)
             const urlParams = new URLSearchParams(window.location.search);
-            const sharedUrl = urlParams.get('url');
+            let sharedUrl = urlParams.get('url');
             const sharedTitle = urlParams.get('title');
 
+            // Also check for URL in hash (backup method)
+            if (!sharedUrl && window.location.hash) {
+                sharedUrl = window.location.hash.substring(1);
+            }
+
+            // Decode URL if needed
+            if (sharedUrl) {
+                try {
+                    sharedUrl = decodeURIComponent(sharedUrl);
+                } catch(e) {}
+            }
+
+            console.log('Shared URL:', sharedUrl); // Debug
+
             if (sharedUrl || sharedTitle) {
-                openModal();
-                if (sharedUrl) document.getElementById('urlInput').value = sharedUrl;
-                if (sharedTitle) document.getElementById('titleInput').value = sharedTitle;
-                autoDetectCategory(sharedUrl);
+                setTimeout(() => {
+                    openModal();
+                    if (sharedUrl) document.getElementById('urlInput').value = sharedUrl;
+                    if (sharedTitle) document.getElementById('titleInput').value = sharedTitle;
+                    autoDetectCategory(sharedUrl);
+                }, 300);
             }
         });
 
