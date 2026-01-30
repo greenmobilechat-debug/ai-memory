@@ -967,10 +967,21 @@
             }
         }
 
-        // Open URL
+        // Open URL (with Google Docs Viewer for PDFs)
         function openUrl(url, event) {
             event.stopPropagation();
-            if (url) window.open(url, '_blank');
+            if (!url) return;
+
+            // Check if it's a PDF or document file
+            const lowerUrl = url.toLowerCase();
+            if (lowerUrl.endsWith('.pdf') || lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx') ||
+                lowerUrl.endsWith('.xls') || lowerUrl.endsWith('.xlsx') || lowerUrl.endsWith('.ppt') || lowerUrl.endsWith('.pptx')) {
+                // Open with Google Docs Viewer
+                const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=true';
+                window.open(viewerUrl, '_blank');
+            } else {
+                window.open(url, '_blank');
+            }
         }
 
         // Render memories
