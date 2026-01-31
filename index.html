@@ -1334,6 +1334,60 @@
             }
         }
 
+        // Open image in new tab/modal
+        function openImage(id, event) {
+            event.stopPropagation();
+            const memory = memories.find(m => m.id === id);
+            if (!memory || !memory.thumbnail) return;
+
+            // Open image in new window
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${memory.title}</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <style>
+                        body { margin: 0; background: #000; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+                        img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+                    </style>
+                </head>
+                <body>
+                    <img src="${memory.thumbnail}" alt="${memory.title}">
+                </body>
+                </html>
+            `);
+        }
+
+        // Share image
+        async function shareImage(id, title, event) {
+            event.stopPropagation();
+            const memory = memories.find(m => m.id === id);
+            if (!memory || !memory.thumbnail) return;
+
+            // Try to share the data URL
+            if (navigator.share) {
+                try {
+                    // Convert base64 to blob for sharing
+                    const response = await fetch(memory.thumbnail);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'screenshot.jpg', { type: 'image/jpeg' });
+
+                    await navigator.share({
+                        title: title,
+                        files: [file]
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        showToast('לא ניתן לשתף תמונה');
+                    }
+                }
+            } else {
+                showToast('שיתוף לא נתמך בדפדפן זה');
+            }
+        }
+
         // Copy to clipboard
         function copyToClipboard(text) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1415,7 +1469,7 @@
                 const socialClass = isFacebook ? 'facebook' : (isInstagram ? 'instagram' : '');
 
                 return `
-                    <div class="memory-card" onclick="openUrl('${memory.url || ''}', event)">
+                    <div class="memory-card" onclick="${memory.url ? `openUrl('${memory.url}', event)` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `openImage('${memory.id}', event)` : '')}">
                         <div class="memory-thumbnail ${docClass} ${docType} ${socialClass}">
                             ${memory.thumbnail && !isDoc
                                 ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${cat.icon}';">`
@@ -1427,8 +1481,8 @@
                             <h3 class="memory-title">${memory.title}</h3>
                             <p class="memory-date">📅 ${date}</p>
                             <div class="memory-actions">
-                                ${memory.url ? `<button class="memory-action-btn open" onclick="openUrl('${memory.url}', event)">פתח</button>` : ''}
-                                ${memory.url ? `<button class="memory-action-btn share" onclick="shareMemory('${memory.url}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : ''}
+                                ${memory.url ? `<button class="memory-action-btn open" onclick="openUrl('${memory.url}', event)">פתח</button>` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `<button class="memory-action-btn open" onclick="openImage('${memory.id}', event)">צפה</button>` : '')}
+                                ${memory.url ? `<button class="memory-action-btn share" onclick="shareMemory('${memory.url}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `<button class="memory-action-btn share" onclick="shareImage('${memory.id}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : '')}
                                 ${memory.category === 'invoice_unpaid' ? `<button class="memory-action-btn paid" onclick="toggleInvoiceStatus('${memory.id}', event)">✅ שולם</button>` : ''}
                                 ${memory.category === 'invoice_paid' ? `<button class="memory-action-btn unpaid" onclick="toggleInvoiceStatus('${memory.id}', event)">💳 לתשלום</button>` : ''}
                                 <button class="memory-action-btn edit" onclick="editMemory('${memory.id}', event)">ערוך</button>
