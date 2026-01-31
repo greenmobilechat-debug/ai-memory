@@ -429,6 +429,37 @@
         .cat-icon {
             margin-left: 5px;
         }
+
+        /* Document thumbnail with PDF icon */
+        .memory-thumbnail.doc-thumb {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            position: relative;
+        }
+
+        .memory-thumbnail.doc-thumb::after {
+            content: 'PDF';
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: white;
+            color: #c0392b;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .memory-thumbnail.doc-thumb.docx::after {
+            content: 'DOC';
+            background: #2b579a;
+            color: white;
+        }
+
+        .memory-thumbnail.doc-thumb.xlsx::after {
+            content: 'XLS';
+            background: #217346;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -731,10 +762,14 @@
         function getFileThumbnail(fileName, fileUrl) {
             const lower = fileName.toLowerCase();
             // For images, use the file itself as thumbnail
-            if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif')) {
+            if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.heic') || lower.endsWith('.webp')) {
                 return fileUrl;
             }
-            // For PDFs and docs, we can't easily generate thumbnails
+            // For PDFs, use PDF.js viewer thumbnail or Google Docs thumbnail
+            if (lower.endsWith('.pdf')) {
+                return 'https://drive.google.com/thumbnail?id=pdf&sz=w400';
+            }
+            // For other docs, return null (will show icon)
             return null;
         }
 
@@ -806,6 +841,22 @@
                 if (hostname.includes('youtu.be')) {
                     const videoId = urlObj.pathname.slice(1);
                     if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+
+                // Facebook - no thumbnail available (requires login)
+                // Return null to show category icon instead
+                if (hostname.includes('facebook.com') || hostname.includes('fb.watch') || hostname.includes('fb.com')) {
+                    return null;
+                }
+
+                // Instagram - also requires login, show category icon
+                if (hostname.includes('instagram.com')) {
+                    return null;
+                }
+
+                // TikTok - use thum.io (works for public content)
+                if (hostname.includes('tiktok.com')) {
+                    return `https://image.thum.io/get/width/400/${url}`;
                 }
 
                 // Vimeo - use thum.io
@@ -1021,12 +1072,23 @@
                 const cat = categoryConfig[memory.category] || categoryConfig.other;
                 const date = new Date(memory.created_at).toLocaleDateString('he-IL');
 
+                // Determine if this is a document and what type
+                const url = (memory.url || '').toLowerCase();
+                const isDoc = url.endsWith('.pdf') || url.endsWith('.doc') || url.endsWith('.docx') ||
+                              url.endsWith('.xls') || url.endsWith('.xlsx') || url.endsWith('.ppt') || url.endsWith('.pptx');
+                const docClass = isDoc ? 'doc-thumb' : '';
+                const docType = url.endsWith('.docx') || url.endsWith('.doc') ? 'docx' :
+                               (url.endsWith('.xlsx') || url.endsWith('.xls') ? 'xlsx' : '');
+                const docIcon = url.endsWith('.pdf') ? '📕' :
+                               (url.endsWith('.docx') || url.endsWith('.doc') ? '📘' :
+                               (url.endsWith('.xlsx') || url.endsWith('.xls') ? '📗' : '📄'));
+
                 return `
                     <div class="memory-card" onclick="openUrl('${memory.url || ''}', event)">
-                        <div class="memory-thumbnail">
-                            ${memory.thumbnail
+                        <div class="memory-thumbnail ${docClass} ${docType}">
+                            ${memory.thumbnail && !isDoc
                                 ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${cat.icon}';">`
-                                : cat.icon
+                                : (isDoc ? docIcon : cat.icon)
                             }
                         </div>
                         <div class="memory-content">
