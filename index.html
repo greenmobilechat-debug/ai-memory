@@ -1306,14 +1306,8 @@
             event.stopPropagation();
             if (!url) return;
 
-            const lowerUrl = url.toLowerCase();
-            if (lowerUrl.endsWith('.pdf') || lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx') ||
-                lowerUrl.endsWith('.xls') || lowerUrl.endsWith('.xlsx')) {
-                const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=true';
-                window.open(viewerUrl, '_blank');
-            } else {
-                window.open(url, '_blank');
-            }
+            // Open directly - let the browser/device handle the file
+            window.open(url, '_blank');
         }
 
         // Share memory
