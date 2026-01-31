@@ -1511,8 +1511,8 @@
                 return `
                     <div class="memory-card" onclick="${memory.url ? `openUrl('${memory.url}', event)` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `openImage('${memory.id}', event)` : '')}">
                         <div class="memory-thumbnail ${docClass} ${docType} ${socialClass}">
-                            ${memory.thumbnail && !isDoc
-                                ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${cat.icon}';">`
+                            ${memory.thumbnail
+                                ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${isDoc ? docIcon : cat.icon}';">`
                                 : (isDoc ? docIcon : cat.icon)
                             }
                         </div>
