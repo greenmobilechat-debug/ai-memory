@@ -297,6 +297,13 @@
             color: #aaa;
         }
 
+        .memory-notes {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
         .memory-actions {
             display: flex;
             gap: 5px;
@@ -1519,6 +1526,7 @@
                             <span class="memory-category">${cat.icon} ${cat.label}</span>
                             <h3 class="memory-title">${memory.title}</h3>
                             <p class="memory-date">📅 ${date}</p>
+                            ${memory.notes ? `<p class="memory-notes">📝 ${memory.notes}</p>` : ''}
                             <div class="memory-actions">
                                 ${memory.url ? `<button class="memory-action-btn open" onclick="openUrl('${memory.url}', event)">פתח</button>` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `<button class="memory-action-btn open" onclick="openImage('${memory.id}', event)">צפה</button>` : '')}
                                 ${memory.url ? `<button class="memory-action-btn share" onclick="shareMemory('${memory.url}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : (memory.thumbnail && memory.thumbnail.startsWith('data:') ? `<button class="memory-action-btn share" onclick="shareImage('${memory.id}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : '')}
