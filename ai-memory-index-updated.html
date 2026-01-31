@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <title>AI Memory - הזיכרון החכם שלך</title>
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Pull to refresh indicator */
+        .refresh-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-100%);
+            transition: transform 0.3s;
+            z-index: 200;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .refresh-indicator.visible {
+            transform: translateY(0);
+        }
+
+        .refresh-indicator.loading {
+            transform: translateY(0);
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .logo h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .logo p {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+
+        /* Refresh button */
+        .refresh-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .add-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Search & Filter */
+        .search-section {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            font-size: 0.95rem;
+            font-family: 'Heebo', sans-serif;
+            outline: none;
+        }
+
+        .search-box input::placeholder {
+            color: #aaa;
+        }
+
+        .search-icon {
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        /* Categories */
+        .categories {
+            max-width: 1200px;
+            margin: 15px auto;
+            padding: 0 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .category-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 15px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-btn:hover,
+        .category-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        /* Memories Grid - 2 columns on mobile */
+        .memories-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 10px 100px;
+        }
+
+        .memories-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+            .memories-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .memories-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .memory-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .memory-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .memory-thumbnail {
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            position: relative;
+        }
+
+        .memory-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .memory-content {
+            padding: 10px;
+        }
+
+        .memory-category {
+            display: inline-block;
+            background: #f0f0ff;
+            color: #667eea;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .memory-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.3;
+        }
+
+        .memory-date {
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+
+        .memory-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        .memory-action-btn {
+            flex: 1;
+            padding: 6px 4px;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .memory-action-btn.open {
+            background: #667eea;
+            color: white;
+        }
+
+        .memory-action-btn.edit {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .memory-action-btn.share {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .memory-action-btn.delete {
+            background: #fee;
+            color: #e55;
+            padding: 6px 8px;
+            flex: 0;
+        }
+
+        .memory-action-btn:hover {
+            opacity: 0.85;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .empty-state h2 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .modal-btn.save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .modal-btn.cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .modal-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Stats */
+        .stats {
+            max-width: 1200px;
+            margin: 0 auto 10px;
+            padding: 0 15px;
+            color: white;
+            font-size: 0.8rem;
+            opacity: 0.8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Document thumbnail with PDF icon */
+        .memory-thumbnail.doc-thumb {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .memory-thumbnail.doc-thumb::after {
+            content: 'PDF';
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: white;
+            color: #c0392b;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: bold;
+        }
+
+        .memory-thumbnail.doc-thumb.docx {
+            background: linear-gradient(135deg, #2b579a 0%, #1e3a5f 100%);
+        }
+
+        .memory-thumbnail.doc-thumb.docx::after {
+            content: 'DOC';
+            color: #2b579a;
+        }
+
+        .memory-thumbnail.doc-thumb.xlsx {
+            background: linear-gradient(135deg, #217346 0%, #0d4620 100%);
+        }
+
+        .memory-thumbnail.doc-thumb.xlsx::after {
+            content: 'XLS';
+            color: #217346;
+        }
+
+        /* Toast */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, 20px);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        /* Social media colors */
+        .memory-thumbnail.facebook {
+            background: linear-gradient(135deg, #1877f2 0%, #0d5bbd 100%);
+        }
+
+        .memory-thumbnail.instagram {
+            background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+
+        /* Category Icons */
+        .cat-icon {
+            margin-left: 3px;
+        }
+
+        /* Thumbnail upload buttons */
+        .thumbnail-upload-btn {
+            background: #f0f0ff;
+            color: #667eea;
+            border: 2px dashed #667eea;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .thumbnail-upload-btn:hover {
+            background: #667eea;
+            color: white;
+            border-style: solid;
+        }
+
+        .thumbnail-remove-btn {
+            background: #fee;
+            color: #e55;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+
+        .thumbnail-remove-btn:hover {
+            background: #e55;
+            color: white;
+        }
+
+        .uploading-indicator {
+            display: inline-block;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Refresh Indicator -->
+    <div class="refresh-indicator" id="refreshIndicator">
+        <span id="refreshText">🔄 משחרר לרענון...</span>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🧠</div>
+                <div>
+                    <h1>AI Memory</h1>
+                    <p>הזיכרון החכם שלך</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="refresh-btn" onclick="refreshMemories()" id="refreshBtn" title="רענן">🔄</button>
+                <button class="add-btn" onclick="openModal()">
+                    <span>➕</span>
+                    <span>חדש</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Search -->
+    <section class="search-section">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="חיפוש בזיכרונות..." oninput="filterMemories()">
+        </div>
+    </section>
+
+    <!-- Categories -->
+    <div class="categories">
+        <button class="category-btn active" data-category="all" onclick="setCategory('all')">
+            <span class="cat-icon">📁</span> הכל
+        </button>
+        <button class="category-btn" data-category="video" onclick="setCategory('video')">
+            <span class="cat-icon">🎬</span> סרטונים
+        </button>
+        <button class="category-btn" data-category="website" onclick="setCategory('website')">
+            <span class="cat-icon">🌐</span> אתרים
+        </button>
+        <button class="category-btn" data-category="document" onclick="setCategory('document')">
+            <span class="cat-icon">📄</span> מסמכים
+        </button>
+        <button class="category-btn" data-category="image" onclick="setCategory('image')">
+            <span class="cat-icon">📸</span> תמונות
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <span id="statsText">טוען...</span>
+    </div>
+
+    <!-- Memories Grid -->
+    <main class="memories-container">
+        <div class="memories-grid" id="memoriesGrid">
+            <!-- Cards will be inserted here -->
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-state-icon">🧠</div>
+            <h2>אין עדיין זיכרונות</h2>
+            <p>שתף תוכן מכל אפליקציה לשמירה</p>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h2 id="modalTitle">💾 שמירה חדשה</h2>
+            <form id="memoryForm" onsubmit="saveMemory(event)">
+                <input type="hidden" id="editingId">
+                <div class="form-group">
+                    <label>כותרת *</label>
+                    <input type="text" id="titleInput" required placeholder="תן שם לזיכרון">
+                </div>
+                <div class="form-group">
+                    <label>קישור (URL)</label>
+                    <input type="url" id="urlInput" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>קטגוריה</label>
+                    <select id="categoryInput">
+                        <option value="website">🌐 אתר</option>
+                        <option value="video">🎬 סרטון</option>
+                        <option value="document">📄 מסמך</option>
+                        <option value="image">📸 תמונה</option>
+                        <option value="other">📌 אחר</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>הערות</label>
+                    <textarea id="notesInput" placeholder="הערות נוספות..."></textarea>
+                </div>
+                <div class="form-group" id="thumbnailUploadGroup" style="display: none;">
+                    <label>תמונת תצוגה מקדימה</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <img id="thumbnailPreview" src="" alt="" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; display: none; border: 2px solid #eee;">
+                        <div style="flex: 1;">
+                            <input type="file" id="thumbnailInput" accept="image/*" onchange="handleThumbnailSelect(event)" style="display: none;">
+                            <button type="button" class="thumbnail-upload-btn" onclick="document.getElementById('thumbnailInput').click()">
+                                📷 בחר תמונה
+                            </button>
+                            <button type="button" class="thumbnail-remove-btn" id="removeThumbnailBtn" onclick="removeThumbnail()" style="display: none;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #888; margin-top: 5px;">העלה תמונה מהגלריה כתצוגה מקדימה</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn cancel" onclick="closeModal()">ביטול</button>
+                    <button type="submit" class="modal-btn save" id="saveBtn">שמור</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://wdpatppnndvnoakbdhgm.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcGF0cHBubmR2bm9ha2JkaGdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NjkxODUsImV4cCI6MjA4NTM0NTE4NX0.ru9u6U03qHtM-mhXmIl0DA4ZqXSf4mdiAyyuzK4svPU';
+
+        // State
+        let memories = [];
+        let currentCategory = 'all';
+        let searchQuery = '';
+        let editingMemory = null;
+        let pendingThumbnailFile = null;
+        let currentThumbnailUrl = null;
+
+        // Category config
+        const categoryConfig = {
+            video: { icon: '🎬', label: 'סרטון', color: '#e74c3c' },
+            website: { icon: '🌐', label: 'אתר', color: '#3498db' },
+            document: { icon: '📄', label: 'מסמך', color: '#9b59b6' },
+            image: { icon: '📸', label: 'תמונה', color: '#f39c12' },
+            other: { icon: '📌', label: 'אחר', color: '#95a5a6' }
+        };
+
+        // Pull to refresh
+        let touchStartY = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (window.scrollY === 0) {
+                touchEndY = e.touches[0].clientY;
+                const diff = touchEndY - touchStartY;
+                if (diff > 50) {
+                    document.getElementById('refreshIndicator').classList.add('visible');
+                }
+            }
+        });
+
+        document.addEventListener('touchend', async () => {
+            const indicator = document.getElementById('refreshIndicator');
+            if (indicator.classList.contains('visible')) {
+                document.getElementById('refreshText').textContent = '🔄 מרענן...';
+                indicator.classList.add('loading');
+                await loadMemories();
+                setTimeout(() => {
+                    indicator.classList.remove('visible', 'loading');
+                    document.getElementById('refreshText').textContent = '🔄 משחרר לרענון...';
+                }, 500);
+            }
+            touchStartY = 0;
+            touchEndY = 0;
+        });
+
+        // Refresh button
+        async function refreshMemories() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('spinning');
+            await loadMemories();
+            setTimeout(() => btn.classList.remove('spinning'), 500);
+            showToast('רוענן בהצלחה!');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMemories();
+
+            // Check for shared content (from URL params)
+            const urlParams = new URLSearchParams(window.location.search);
+            let sharedUrl = urlParams.get('url');
+
+            if (!sharedUrl && window.location.hash) {
+                sharedUrl = window.location.hash.substring(1);
+            }
+
+            if (sharedUrl) {
+                try {
+                    sharedUrl = decodeURIComponent(sharedUrl);
+                } catch(e) {}
+                autoSaveMemory(sharedUrl);
+            }
+        });
+
+        // Auto-save with smart title generation
+        async function autoSaveMemory(url) {
+            const category = detectCategory(url);
+            const smartTitle = generateSmartTitle(url);
+            const thumbnail = getThumbnail(url);
+
+            const memory = {
+                title: smartTitle,
+                url: url,
+                category: category,
+                thumbnail: thumbnail
+            };
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/memories`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(memory)
+                });
+
+                if (!response.ok) throw new Error('Failed to save');
+
+                const newMemory = await response.json();
+                memories.unshift(newMemory[0]);
+                renderMemories();
+                showToast('נשמר בהצלחה! ✓');
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+            } catch (error) {
+                console.error('Error auto-saving:', error);
+                showToast('שגיאה בשמירה');
+            }
+        }
+
+        // Detect category from URL
+        function detectCategory(url) {
+            const urlLower = url.toLowerCase();
+            const videoSites = ['youtube.com', 'youtu.be', 'vimeo.com', 'tiktok.com', 'instagram.com/reel', 'facebook.com/watch'];
+            const docExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+
+            if (videoSites.some(site => urlLower.includes(site))) return 'video';
+            if (docExtensions.some(ext => urlLower.endsWith(ext))) return 'document';
+            if (imageExtensions.some(ext => urlLower.endsWith(ext))) return 'image';
+            return 'website';
+        }
+
+        // Generate smart title from URL
+        function generateSmartTitle(url) {
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+
+                if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'סרטון YouTube';
+                if (hostname.includes('instagram.com')) return 'תוכן מאינסטגרם';
+                if (hostname.includes('tiktok.com')) return 'סרטון TikTok';
+                if (hostname.includes('facebook.com')) return 'תוכן מפייסבוק';
+                if (hostname.includes('twitter.com') || hostname.includes('x.com')) return 'פוסט מ-X';
+                return `שמירה מ-${hostname}`;
+            } catch (e) {
+                return 'שמירה חדשה';
+            }
+        }
+
+        // Get thumbnail for URL
+        function getThumbnail(url) {
+            try {
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname.replace('www.', '');
+
+                // YouTube
+                if (hostname.includes('youtube.com')) {
+                    const videoId = urlObj.searchParams.get('v');
+                    if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+                if (hostname.includes('youtu.be')) {
+                    const videoId = urlObj.pathname.slice(1);
+                    if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+
+                // Facebook/Instagram - return null (show icon)
+                if (hostname.includes('facebook.com') || hostname.includes('fb.') || hostname.includes('instagram.com')) {
+                    return null;
+                }
+
+                // Use thum.io for screenshots
+                return `https://image.thum.io/get/width/400/${url}`;
+
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Toast notification
+        function showToast(message) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 20px;
+                font-size: 0.9rem;
+                z-index: 9999;
+                animation: fadeInUp 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // Load memories from Supabase
+        async function loadMemories() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/memories?select=*&order=created_at.desc`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load');
+
+                memories = await response.json();
+                renderMemories();
+            } catch (error) {
+                console.error('Error loading memories:', error);
+                document.getElementById('statsText').textContent = 'שגיאה בטעינת הנתונים';
+            }
+        }
+
+        // Save or update memory
+        async function saveMemory(event) {
+            event.preventDefault();
+
+            const saveBtn = document.getElementById('saveBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="uploading-indicator">⏳</span> שומר...';
+
+            const id = document.getElementById('editingId').value;
+            const memory = {
+                title: document.getElementById('titleInput').value,
+                url: document.getElementById('urlInput').value || null,
+                category: document.getElementById('categoryInput').value,
+                notes: document.getElementById('notesInput').value || null
+            };
+
+            try {
+                // Handle thumbnail upload if there's a pending file
+                if (pendingThumbnailFile) {
+                    const thumbnailUrl = await uploadThumbnail(pendingThumbnailFile);
+                    memory.thumbnail = thumbnailUrl;
+                } else if (id && currentThumbnailUrl === null) {
+                    // Thumbnail was removed
+                    memory.thumbnail = null;
+                }
+
+                let response;
+                if (id) {
+                    // Update existing
+                    response = await fetch(`${SUPABASE_URL}/rest/v1/memories?id=eq.${id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(memory)
+                    });
+
+                    if (!response.ok) throw new Error('Failed to update');
+
+                    const updated = await response.json();
+                    const index = memories.findIndex(m => m.id === id);
+                    if (index !== -1) memories[index] = updated[0];
+                    showToast('עודכן בהצלחה! ✓');
+                } else {
+                    // Create new
+                    response = await fetch(`${SUPABASE_URL}/rest/v1/memories`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(memory)
+                    });
+
+                    if (!response.ok) throw new Error('Failed to save');
+
+                    const newMemory = await response.json();
+                    memories.unshift(newMemory[0]);
+                    showToast('נשמר בהצלחה! ✓');
+                }
+
+                renderMemories();
+                closeModal();
+                document.getElementById('memoryForm').reset();
+                document.getElementById('editingId').value = '';
+                pendingThumbnailFile = null;
+                currentThumbnailUrl = null;
+            } catch (error) {
+                console.error('Error saving memory:', error);
+                showToast('שגיאה בשמירה');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        }
+
+        // Edit memory
+        function editMemory(id, event) {
+            event.stopPropagation();
+
+            const memory = memories.find(m => m.id === id);
+            if (!memory) return;
+
+            document.getElementById('editingId').value = id;
+            document.getElementById('titleInput').value = memory.title || '';
+            document.getElementById('urlInput').value = memory.url || '';
+            document.getElementById('categoryInput').value = memory.category || 'website';
+            document.getElementById('notesInput').value = memory.notes || '';
+            document.getElementById('modalTitle').textContent = '✏️ עריכת שמירה';
+            document.getElementById('saveBtn').textContent = 'עדכן';
+
+            // Show thumbnail upload section in edit mode
+            document.getElementById('thumbnailUploadGroup').style.display = 'block';
+
+            // Reset thumbnail state
+            pendingThumbnailFile = null;
+            currentThumbnailUrl = memory.thumbnail;
+
+            // Show current thumbnail if exists
+            const preview = document.getElementById('thumbnailPreview');
+            const removeBtn = document.getElementById('removeThumbnailBtn');
+            if (memory.thumbnail) {
+                preview.src = memory.thumbnail;
+                preview.style.display = 'block';
+                removeBtn.style.display = 'inline-block';
+            } else {
+                preview.style.display = 'none';
+                removeBtn.style.display = 'none';
+            }
+
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        // Handle thumbnail file selection
+        function handleThumbnailSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showToast('נא לבחור קובץ תמונה');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('התמונה גדולה מדי (מקסימום 5MB)');
+                return;
+            }
+
+            pendingThumbnailFile = file;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById('thumbnailPreview');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                document.getElementById('removeThumbnailBtn').style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Remove thumbnail
+        function removeThumbnail() {
+            pendingThumbnailFile = null;
+            currentThumbnailUrl = null;
+            document.getElementById('thumbnailInput').value = '';
+            document.getElementById('thumbnailPreview').style.display = 'none';
+            document.getElementById('removeThumbnailBtn').style.display = 'none';
+        }
+
+        // Upload thumbnail to Supabase Storage
+        async function uploadThumbnail(file) {
+            const timestamp = Date.now();
+            const ext = file.name.split('.').pop().toLowerCase();
+            const fileName = `thumbnail-${timestamp}.${ext}`;
+            const storagePath = `thumbnails/${fileName}`;
+
+            const response = await fetch(`${SUPABASE_URL}/storage/v1/object/memories/${storagePath}`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': file.type
+                },
+                body: file
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to upload thumbnail');
+            }
+
+            // Return public URL
+            return `${SUPABASE_URL}/storage/v1/object/public/memories/${storagePath}`;
+        }
+
+        // Delete memory
+        async function deleteMemory(id, event) {
+            event.stopPropagation();
+
+            if (!confirm('למחוק את הזיכרון הזה?')) return;
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/memories?id=eq.${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete');
+
+                memories = memories.filter(m => m.id !== id);
+                renderMemories();
+                showToast('נמחק בהצלחה');
+            } catch (error) {
+                console.error('Error deleting memory:', error);
+                showToast('שגיאה במחיקה');
+            }
+        }
+
+        // Open URL
+        function openUrl(url, event) {
+            event.stopPropagation();
+            if (!url) return;
+
+            const lowerUrl = url.toLowerCase();
+            if (lowerUrl.endsWith('.pdf') || lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx') ||
+                lowerUrl.endsWith('.xls') || lowerUrl.endsWith('.xlsx')) {
+                const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=true';
+                window.open(viewerUrl, '_blank');
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+
+        // Share memory
+        async function shareMemory(url, title, event) {
+            event.stopPropagation();
+            if (!url) return;
+
+            // Use native share if available (iOS/Android)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        url: url
+                    });
+                } catch (err) {
+                    // User cancelled or error
+                    if (err.name !== 'AbortError') {
+                        // Fallback to clipboard
+                        copyToClipboard(url);
+                    }
+                }
+            } else {
+                // Fallback: copy to clipboard
+                copyToClipboard(url);
+            }
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('הקישור הועתק! 📋');
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        // Fallback copy method
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('הקישור הועתק! 📋');
+            } catch (err) {
+                showToast('לא ניתן להעתיק');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Render memories
+        function renderMemories() {
+            const grid = document.getElementById('memoriesGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            let filtered = memories;
+
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(m => m.category === currentCategory);
+            }
+
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(m =>
+                    m.title.toLowerCase().includes(query) ||
+                    (m.url && m.url.toLowerCase().includes(query)) ||
+                    (m.notes && m.notes.toLowerCase().includes(query))
+                );
+            }
+
+            document.getElementById('statsText').textContent =
+                `${filtered.length} זיכרונות ${currentCategory !== 'all' ? 'בקטגוריה' : 'סה"כ'}`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            grid.innerHTML = filtered.map(memory => {
+                const cat = categoryConfig[memory.category] || categoryConfig.other;
+                const date = new Date(memory.created_at).toLocaleDateString('he-IL');
+
+                const url = (memory.url || '').toLowerCase();
+                const isDoc = url.endsWith('.pdf') || url.endsWith('.doc') || url.endsWith('.docx') ||
+                              url.endsWith('.xls') || url.endsWith('.xlsx');
+                const docClass = isDoc ? 'doc-thumb' : '';
+                const docType = url.endsWith('.docx') || url.endsWith('.doc') ? 'docx' :
+                               (url.endsWith('.xlsx') || url.endsWith('.xls') ? 'xlsx' : '');
+                const docIcon = url.endsWith('.pdf') ? '📕' :
+                               (url.endsWith('.docx') || url.endsWith('.doc') ? '📘' :
+                               (url.endsWith('.xlsx') || url.endsWith('.xls') ? '📗' : '📄'));
+
+                // Social media classes
+                const isFacebook = url.includes('facebook.com') || url.includes('fb.');
+                const isInstagram = url.includes('instagram.com');
+                const socialClass = isFacebook ? 'facebook' : (isInstagram ? 'instagram' : '');
+
+                return `
+                    <div class="memory-card" onclick="openUrl('${memory.url || ''}', event)">
+                        <div class="memory-thumbnail ${docClass} ${docType} ${socialClass}">
+                            ${memory.thumbnail && !isDoc
+                                ? `<img src="${memory.thumbnail}" alt="${memory.title}" onerror="this.style.display='none'; this.parentElement.innerHTML='${cat.icon}';">`
+                                : (isDoc ? docIcon : cat.icon)
+                            }
+                        </div>
+                        <div class="memory-content">
+                            <span class="memory-category">${cat.icon} ${cat.label}</span>
+                            <h3 class="memory-title">${memory.title}</h3>
+                            <p class="memory-date">📅 ${date}</p>
+                            <div class="memory-actions">
+                                ${memory.url ? `<button class="memory-action-btn open" onclick="openUrl('${memory.url}', event)">פתח</button>` : ''}
+                                ${memory.url ? `<button class="memory-action-btn share" onclick="shareMemory('${memory.url}', '${memory.title.replace(/'/g, "\\'")}', event)">שתף</button>` : ''}
+                                <button class="memory-action-btn edit" onclick="editMemory('${memory.id}', event)">ערוך</button>
+                                <button class="memory-action-btn delete" onclick="deleteMemory('${memory.id}', event)">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Filter functions
+        function setCategory(category) {
+            currentCategory = category;
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.category === category);
+            });
+            renderMemories();
+        }
+
+        function filterMemories() {
+            searchQuery = document.getElementById('searchInput').value;
+            renderMemories();
+        }
+
+        // Modal functions
+        function openModal() {
+            document.getElementById('editingId').value = '';
+            document.getElementById('memoryForm').reset();
+            document.getElementById('modalTitle').textContent = '💾 שמירה חדשה';
+            document.getElementById('saveBtn').textContent = 'שמור';
+
+            // Hide thumbnail upload for new entries (only show in edit mode)
+            document.getElementById('thumbnailUploadGroup').style.display = 'none';
+            pendingThumbnailFile = null;
+            currentThumbnailUrl = null;
+
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal(event) {
+            if (!event || event.target === document.getElementById('modalOverlay')) {
+                document.getElementById('modalOverlay').classList.remove('active');
+
+                // Reset thumbnail state
+                pendingThumbnailFile = null;
+                currentThumbnailUrl = null;
+                document.getElementById('thumbnailInput').value = '';
+                document.getElementById('thumbnailPreview').style.display = 'none';
+                document.getElementById('removeThumbnailBtn').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
